@@ -1,20 +1,39 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Switch,
-  ActivityIndicator,
+  Alert,
+  Platform,
   Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 
 import { useIoT } from '../../context/IoTContext';
+import { useTheme } from '../../theme/useTheme';
+import { Device } from '../../models/IotModels';
+import Banner from '../../components/Banner';
+import DeviceCard from '../../components/DeviceCard';
+import EmptyState from '../../components/EmptyState';
+import AddDeviceModal from '../../components/AddDeviceModal';
 
+function confirmRemove(device: Device, onConfirm: () => void) {
+  const message = `Remove ${device.name}? This cannot be undone.`;
 
+  if (Platform.OS === 'web') {
+    if (window.confirm(message)) onConfirm();
+    return;
+  }
+
+  Alert.alert('Remove device', message, [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Remove', style: 'destructive', onPress: onConfirm },
+  ]);
+}
 
 export default function DevicesScreen() {
 
@@ -25,165 +44,127 @@ export default function DevicesScreen() {
     refreshDevices,
     updatingDeviceId,
     deviceUpdateError,
+    deviceActionLoading,
+    deviceActionMessage,
+    clearDeviceMessages,
     toggleDevice,
+    addDevice,
+    removeDevice,
     gatewayConnected,
     gatewayConnecting,
     gatewayError,
     connectGateway,
   } = useIoT();
 
+  const theme = useTheme();
+  const [addVisible, setAddVisible] = useState(false);
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-    >
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={devicesLoading} onRefresh={refreshDevices} />
+        }
+      >
 
-      <Text style={styles.title}>
-        Devices
-      </Text>
+        <Text style={[styles.title, { color: theme.text }]}>
+          Devices
+        </Text>
 
-      <Text style={styles.subtitle}>
-        Control your connected devices
-      </Text>
+        <Text style={[styles.subtitle, { color: theme.mutedText }]}>
+          Control your connected devices
+        </Text>
 
-      {!gatewayConnecting && !gatewayConnected && (
-        <View style={[styles.banner, styles.errorBanner]}>
+        <Pressable
+          style={[styles.addButton, { backgroundColor: theme.primary }]}
+          onPress={() => {
+            clearDeviceMessages();
+            setAddVisible(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Add device"
+        >
+          <Ionicons name="add-circle-outline" size={20} color={theme.onPrimary} />
+          <Text style={[styles.addButtonText, { color: theme.onPrimary }]}>
+            Add Device
+          </Text>
+        </Pressable>
 
-          <Ionicons
-            name="cloud-offline-outline"
-            size={20}
-            color="#b3261e"
+        {!gatewayConnecting && !gatewayConnected && (
+          <Banner
+            variant="error"
+            message={gatewayError ?? 'IoT Gateway is disconnected.'}
+            actionLabel="Retry"
+            onAction={connectGateway}
           />
+        )}
 
-          <Text style={styles.errorBannerText}>
-            {gatewayError ?? 'IoT Gateway is disconnected.'}
-          </Text>
-
-          <Pressable
-            style={styles.retryButton}
-            onPress={connectGateway}
-          >
-            <Text style={styles.retryButtonText}>
-              Retry
-            </Text>
-          </Pressable>
-
-        </View>
-      )}
-
-   
-      {devicesError && (
-        <View style={[styles.banner, styles.errorBanner]}>
-
-          <Ionicons
-            name="alert-circle-outline"
-            size={20}
-            color="#b3261e"
+        {devicesError && (
+          <Banner
+            variant="error"
+            message={devicesError}
+            actionLabel="Retry"
+            onAction={refreshDevices}
           />
+        )}
 
-          <Text style={styles.errorBannerText}>
-            {devicesError}
-          </Text>
-
-          <Pressable
-            style={styles.retryButton}
-            onPress={refreshDevices}
-          >
-            <Text style={styles.retryButtonText}>
-              Retry
-            </Text>
-          </Pressable>
-
-        </View>
-      )}
-
-
-      {deviceUpdateError && (
-        <View style={[styles.banner, styles.errorBanner]}>
-
-          <Ionicons
-            name="alert-circle-outline"
-            size={20}
-            color="#b3261e"
+        {deviceUpdateError && (
+          <Banner
+            variant="error"
+            message={deviceUpdateError}
+            onDismiss={clearDeviceMessages}
           />
+        )}
 
-          <Text style={styles.errorBannerText}>
-            {deviceUpdateError}
-          </Text>
+        {deviceActionMessage && (
+          <Banner
+            variant="success"
+            message={deviceActionMessage}
+            onDismiss={clearDeviceMessages}
+          />
+        )}
 
-        </View>
-      )}
+        {devicesLoading && (
+          <Banner variant="loading" message="Loading devices..." />
+        )}
 
-   
-      {devicesLoading && (
-        <View style={styles.banner}>
-          <ActivityIndicator size="small" />
-          <Text style={styles.loadingBannerText}>
-            Loading devices...
-          </Text>
-        </View>
-      )}
+        {!devicesLoading && !devicesError && devices.length === 0 && (
+          <EmptyState
+            icon="hardware-chip-outline"
+            title="No devices yet"
+            message="Tap Add Device to register your first smart device."
+          />
+        )}
 
-      {devices.map((device) => {
+        {devices.map((device) => {
 
-        const isUpdating = updatingDeviceId === device.id;
-        const switchDisabled = !gatewayConnected || isUpdating;
+          const isUpdating = updatingDeviceId === device.id;
 
-        return (
+          return (
+            <DeviceCard
+              key={device.id}
+              device={device}
+              showType
+              isUpdating={isUpdating}
+              disabled={!gatewayConnected || isUpdating}
+              onToggle={(value) => toggleDevice(device.id, value)}
+              onRemove={() => confirmRemove(device, () => removeDevice(device.id))}
+            />
+          );
 
-          <View
-            key={device.id}
-            style={styles.deviceCard}
-          >
+        })}
 
-            <View style={styles.deviceInfo}>
+      </ScrollView>
 
-              <View style={styles.iconContainer}>
-
-                <Ionicons
-                  name={device.icon}
-                  size={28}
-                />
-
-              </View>
-
-              <View style={styles.deviceDetails}>
-
-                <Text style={styles.deviceName}>
-                  {device.name}
-                </Text>
-
-                <Text style={styles.deviceType}>
-                  {device.type}
-                </Text>
-
-                <Text style={styles.deviceState}>
-                  {isUpdating ? 'Updating...' : (device.status ? 'ON' : 'OFF')}
-                </Text>
-
-              </View>
-
-            </View>
-
-            {isUpdating ? (
-              <ActivityIndicator size="small" />
-            ) : (
-              <Switch
-                value={device.status}
-                disabled={switchDisabled}
-                onValueChange={(value) => {
-                  toggleDevice(device.id, value);
-                }}
-              />
-            )}
-
-          </View>
-
-        );
-
-      })}
-
-    </ScrollView>
+      <AddDeviceModal
+        visible={addVisible}
+        submitting={deviceActionLoading}
+        onClose={() => setAddVisible(false)}
+        onSubmit={addDevice}
+      />
+    </View>
   );
 }
 
@@ -206,90 +187,22 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     marginTop: 5,
-    marginBottom: 25,
+    marginBottom: 20,
   },
 
-  banner: {
+  addButton: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: '#eeeeee',
-    marginBottom: 15,
-    gap: 10,
-  },
-
-  errorBanner: {
-    backgroundColor: '#fbe9e7',
-  },
-
-  errorBannerText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#b3261e',
-  },
-
-  loadingBannerText: {
-    fontSize: 13,
-  },
-
-  retryButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    backgroundColor: '#b3261e',
-  },
-
-  retryButtonText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-
-  deviceCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 18,
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
-    borderWidth: 2,
-    borderColor: '#1f1f1f',
-    marginBottom: 15,
-  },
-
-  deviceInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-
-  iconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    gap: 8,
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 20,
   },
 
-  deviceDetails: {
-    flex: 1,
-  },
-
-  deviceName: {
-    fontSize: 16,
+  addButtonText: {
+    fontSize: 15,
     fontWeight: 'bold',
-  },
-
-  deviceType: {
-    fontSize: 13,
-    marginTop: 3,
-  },
-
-  deviceState: {
-    fontSize: 12,
-    marginTop: 5,
   },
 
 });

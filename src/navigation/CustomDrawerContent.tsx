@@ -11,8 +11,11 @@ import {
 } from '@react-navigation/drawer';
 
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../theme/useTheme';
 
 export default function CustomDrawerContent(props: any) {
+    const theme = useTheme();
+
     return (
         <DrawerContentScrollView
             {...props}
@@ -26,14 +29,15 @@ export default function CustomDrawerContent(props: any) {
                     <Ionicons
                         name="hardware-chip-outline"
                         size={40}
+                        color={theme.text}
                     />
                 </View>
 
-                <Text style={styles.title}>
+                <Text style={[styles.title, { color: theme.text }]}>
                     IoT Home
                 </Text>
 
-                <Text style={styles.subtitle}>
+                <Text style={[styles.subtitle, { color: theme.mutedText }]}>
                     Smart Environment
                 </Text>
 

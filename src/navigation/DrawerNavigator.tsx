@@ -7,24 +7,35 @@ import SensorsScreen from './screens/SensorsScreen';
 import DevicesScreen from './screens/DevicesScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import CustomDrawerContent from './CustomDrawerContent';
+import { useTheme } from '../theme/useTheme';
 
 const Drawer = createDrawerNavigator();
 
 export default function DrawerNavigator() {
+  const theme = useTheme();
+
   return (
     <Drawer.Navigator
       drawerContent={(props) => (
         <CustomDrawerContent {...props} />
-      )}>
+      )}
+      screenOptions={{
+        headerStyle: { backgroundColor: theme.surface },
+        headerTintColor: theme.text,
+        drawerActiveTintColor: theme.primary,
+        drawerInactiveTintColor: theme.text,
+        drawerStyle: { backgroundColor: theme.surface },
+      }}>
 
       <Drawer.Screen
         name="Dashboard"
         component={DashboardScreen}
         options={{
-          drawerIcon: ({ size }) => (
+          drawerIcon: ({ size, color }) => (
             <Ionicons
               name="grid-outline"
               size={size}
+              color={color}
             />
           ),
         }}
@@ -34,10 +45,11 @@ export default function DrawerNavigator() {
         name="Sensors"
         component={SensorsScreen}
         options={{
-          drawerIcon: ({ size }) => (
+          drawerIcon: ({ size, color }) => (
             <Ionicons
               name="analytics-outline"
               size={size}
+              color={color}
             />
           ),
         }}
@@ -47,10 +59,11 @@ export default function DrawerNavigator() {
         name="Devices"
         component={DevicesScreen}
         options={{
-          drawerIcon: ({ size }) => (
+          drawerIcon: ({ size, color }) => (
             <Ionicons
               name="hardware-chip-outline"
               size={size}
+              color={color}
             />
           ),
         }}
@@ -60,10 +73,11 @@ export default function DrawerNavigator() {
         name="Settings"
         component={SettingsScreen}
         options={{
-          drawerIcon: ({ size }) => (
+          drawerIcon: ({ size, color }) => (
             <Ionicons
               name="settings-outline"
               size={size}
+              color={color}
             />
           ),
         }}

@@ -1,164 +1,166 @@
 import React from 'react';
 import {
-    ActivityIndicator,
+    RefreshControl,
     ScrollView,
     View,
     Text,
     StyleSheet,
-    Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useIoT } from '../../context/IoTContext';
+import { useTheme } from '../../theme/useTheme';
+import Banner from '../../components/Banner';
+import DeviceCard from '../../components/DeviceCard';
+import EmptyState from '../../components/EmptyState';
 
-
+function getGreeting(): string {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+}
 
 export default function DashboardScreen() {
-    // const [deviceStatus, setDeviceStatus] = useState(
-    //     devices.reduce((acc, device) => {
-    //         acc[device.id] = device.status;
-    //         return acc;
-    //     }, {} as Record<number, boolean>)
-    // );
 
     const {
         devices,
+        devicesLoading,
+        devicesError,
+        refreshDevices,
         sensors,
+        sensorsLoading,
+        sensorsError,
+        refreshSensors,
         updatingDeviceId,
+        deviceUpdateError,
+        clearDeviceMessages,
         toggleDevice,
         gatewayConnected,
+        gatewayConnecting,
+        gatewayError,
+        connectGateway,
     } = useIoT();
+
+    const theme = useTheme();
+
+    const sensorCards = [
+        { label: 'Temperature', icon: 'thermometer-outline', value: `${sensors.temperature}°C` },
+        { label: 'Humidity', icon: 'water-outline', value: sensors.humidity === undefined ? '—' : `${sensors.humidity}%` },
+        { label: 'Light', icon: 'sunny-outline', value: `${sensors.lightLevel} lux` },
+    ] as const;
+
+    const refreshAll = () => {
+        refreshDevices();
+        refreshSensors();
+    };
 
     return (
         <ScrollView
-            style={styles.container}
+            style={[styles.container, { backgroundColor: theme.background }]}
             contentContainerStyle={styles.content}
+            refreshControl={
+                <RefreshControl
+                    refreshing={devicesLoading || sensorsLoading}
+                    onRefresh={refreshAll}
+                />
+            }
         >
 
-            <Text style={styles.greeting}>
-                Good evening
+            <Text style={[styles.greeting, { color: theme.mutedText }]}>
+                {getGreeting()}
             </Text>
 
-            <Text style={styles.title}>
+            <Text style={[styles.title, { color: theme.text }]}>
                 IoT Dashboard
             </Text>
 
+            {!gatewayConnecting && !gatewayConnected && (
+                <View style={styles.bannerSpacing}>
+                    <Banner
+                        variant="error"
+                        message={gatewayError ?? 'IoT Gateway is disconnected.'}
+                        actionLabel="Retry"
+                        onAction={connectGateway}
+                    />
+                </View>
+            )}
+
+            {sensorsError && (
+                <View style={styles.bannerSpacing}>
+                    <Banner
+                        variant="error"
+                        message={sensorsError}
+                        actionLabel="Retry"
+                        onAction={refreshSensors}
+                    />
+                </View>
+            )}
+
             <View style={styles.sensorRow}>
+                {sensorCards.map((card) => (
+                    <View
+                        key={card.label}
+                        style={[styles.sensorCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                    >
+                        <View style={styles.sensorHeader}>
+                            <Ionicons name={card.icon} size={22} color={theme.text} />
+                            <Text style={[styles.sensorLabel, { color: theme.mutedText }]}>
+                                {card.label}
+                            </Text>
+                        </View>
 
-                <View style={styles.sensorCard}>
-                    <View style={styles.sensorHeader}>
-                        <Ionicons
-                            name="thermometer-outline"
-                            size={22}
-                        />
-
-                        <Text style={styles.sensorLabel}>
-                            Temperature
+                        <Text style={[styles.sensorValue, { color: theme.text }]}>
+                            {card.value}
                         </Text>
                     </View>
-
-                    <Text style={styles.sensorValue}>
-                        {sensors.temperature}°C
-                    </Text>
-                </View>
-
-                <View style={styles.sensorCard}>
-                    <View style={styles.sensorHeader}>
-                        <Ionicons
-                            name="water-outline"
-                            size={22}
-                        />
-
-                        <Text style={styles.sensorLabel}>
-                            Humidity
-                        </Text>
-                    </View>
-
-                    <Text style={styles.sensorValue}>
-                        {sensors.humidity}%
-                    </Text>
-                </View>
-
+                ))}
             </View>
 
-            <Text style={styles.sectionTitle}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
                 Device Status
             </Text>
 
-            {/* <View style={styles.deviceCard}>
+            {devicesError && (
+                <Banner
+                    variant="error"
+                    message={devicesError}
+                    actionLabel="Retry"
+                    onAction={refreshDevices}
+                />
+            )}
 
-                <View style={styles.deviceInfo}>
-                    <Text style={styles.deviceIcon}>
-                        💡
-                    </Text>
+            {deviceUpdateError && (
+                <Banner
+                    variant="error"
+                    message={deviceUpdateError}
+                    onDismiss={clearDeviceMessages}
+                />
+            )}
 
-                    <View>
-                        <Text style={styles.deviceName}>
-                            Living Room Light
-                        </Text>
+            {devicesLoading && devices.length === 0 && (
+                <Banner variant="loading" message="Loading devices..." />
+            )}
 
-                        <Text style={styles.deviceType}>
-                            Smart Light
-                        </Text>
-                    </View>
-                </View>
-
-                <Text style={styles.deviceStatus}>
-                    ON
-                </Text>
-
-            </View>
-
-        </ScrollView>
-    ); */}
+            {!devicesLoading && !devicesError && devices.length === 0 && (
+                <EmptyState
+                    icon="hardware-chip-outline"
+                    title="No devices yet"
+                    message="Add a device from the Devices screen to see it here."
+                />
+            )}
 
             {devices.map((device) => {
 
                 const isUpdating = updatingDeviceId === device.id;
-                const switchDisabled = !gatewayConnected || isUpdating;
 
                 return (
-
-                <View
-                    key={device.id}
-                    style={styles.deviceCard}
-                >
-
-                    <View style={styles.deviceInfo}>
-
-                        <Ionicons
-                            name={device.icon}
-                            size={28}
-                            style={styles.deviceIcon}
-                        />
-
-                        <View>
-                            <Text style={styles.deviceName}>
-                                {device.name}
-                            </Text>
-
-                            <Text style={styles.deviceType}>
-                                <Text style={styles.deviceState}>
-                                    {isUpdating ? 'Updating...' : (device.status ? 'ON' : 'OFF')}
-                                </Text>
-                            </Text>
-                        </View>
-
-                    </View>
-
-                    {isUpdating ? (
-                        <ActivityIndicator size="small" />
-                    ) : (
-                        <Switch
-                            value={device.status}
-                            disabled={switchDisabled}
-                            onValueChange={(value) => {
-                                toggleDevice(device.id, value);
-                            }}
-                        />
-                    )}
-
-                </View>
-
+                    <DeviceCard
+                        key={device.id}
+                        device={device}
+                        isUpdating={isUpdating}
+                        disabled={!gatewayConnected || isUpdating}
+                        onToggle={(value) => toggleDevice(device.id, value)}
+                    />
                 );
             })}
         </ScrollView>
@@ -186,19 +188,29 @@ const styles = StyleSheet.create({
         marginTop: 5,
     },
 
+    bannerSpacing: {
+        marginTop: 15,
+    },
+
     sensorRow: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 12,
         marginTop: 25,
     },
 
     sensorCard: {
-        flex: 1,
+        flexGrow: 1,
+        flexBasis: 140,
         padding: 20,
         borderRadius: 12,
-        backgroundColor: '#ffffff',
         borderWidth: 2,
-        borderColor: '#1f1f1f',
+    },
+
+    sensorHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
     },
 
     sensorLabel: {
@@ -217,54 +229,5 @@ const styles = StyleSheet.create({
         marginTop: 30,
         marginBottom: 12,
     },
-
-    deviceCard: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 18,
-        borderRadius: 12,
-        backgroundColor: '#ffffff',
-        borderWidth: 2,
-        borderColor: '#1f1f1f',
-        marginBottom: 12,
-    },
-
-    deviceInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-    },
-
-    deviceIcon: {
-        fontSize: 28,
-        marginRight: 12,
-    },
-
-    deviceName: {
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-
-    deviceType: {
-        fontSize: 13,
-        marginTop: 3,
-    },
-
-    deviceStatus: {
-        fontSize: 14,
-        fontWeight: 'bold',
-    },
-
-    sensorHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-
-    deviceState:{
-
-    }
-
 
 });

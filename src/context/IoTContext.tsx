@@ -6,8 +6,14 @@ import React, {
     useState,
 } from 'react';
 
-import { Device, SensorData, sampleDevices } from '../models/IoTModels';
-import * as IoTService from '../services/IoTService';
+import {
+    AppSettings,
+    Device,
+    NewDevice,
+    SensorData,
+    defaultSettings,
+} from '../models/IotModels';
+import * as IoTService from '../services/IotServices';
 
 
 
@@ -23,6 +29,13 @@ type IoTContextType = {
     deviceUpdateError: string | null;
     toggleDevice: (id: number, value: boolean) => Promise<void>;
 
+    // Device management (add / remove) — returns true on success
+    deviceActionLoading: boolean;
+    deviceActionMessage: string | null;
+    clearDeviceMessages: () => void;
+    addDevice: (input: NewDevice) => Promise<boolean>;
+    removeDevice: (id: number) => Promise<boolean>;
+
     // Sensors
     sensors: SensorData;
     sensorsLoading: boolean;
@@ -35,6 +48,11 @@ type IoTContextType = {
     gatewayError: string | null;
     connectGateway: () => Promise<void>;
 
+    // App settings
+    settings: AppSettings;
+    settingsError: string | null;
+    updateSettings: (changes: Partial<AppSettings>) => Promise<void>;
+
     // App appearance
     darkMode: boolean;
     setDarkMode: (value: boolean) => void;
@@ -45,7 +63,6 @@ const IoTContext = createContext<IoTContextType | undefined>(undefined);
 
 const initialSensors: SensorData = {
     temperature: 0,
-    humidity: 0,
     lightLevel: 0,
 };
 
@@ -56,12 +73,15 @@ export function IoTProvider({
 }) {
 
     // Devices
-    const [devices, setDevices] = useState<Device[]>(sampleDevices);
+    const [devices, setDevices] = useState<Device[]>([]);
     const [devicesLoading, setDevicesLoading] = useState(false);
     const [devicesError, setDevicesError] = useState<string | null>(null);
 
     const [updatingDeviceId, setUpdatingDeviceId] = useState<number | null>(null);
     const [deviceUpdateError, setDeviceUpdateError] = useState<string | null>(null);
+
+    const [deviceActionLoading, setDeviceActionLoading] = useState(false);
+    const [deviceActionMessage, setDeviceActionMessage] = useState<string | null>(null);
 
     // Sensors
     const [sensors, setSensors] = useState<SensorData>(initialSensors);
@@ -72,6 +92,10 @@ export function IoTProvider({
     const [gatewayConnected, setGatewayConnected] = useState(false);
     const [gatewayConnecting, setGatewayConnecting] = useState(false);
     const [gatewayError, setGatewayError] = useState<string | null>(null);
+
+    // App settings
+    const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+    const [settingsError, setSettingsError] = useState<string | null>(null);
 
     // App appearance
     const [darkMode, setDarkMode] = useState(false);
@@ -130,7 +154,8 @@ export function IoTProvider({
         value: boolean
     ) => {
 
-       if (!gatewayConnected) {
+        if (!gatewayConnected) {
+            setDeviceUpdateError('Connect to the IoT gateway to control devices.');
             return;
         }
 
@@ -167,10 +192,90 @@ export function IoTProvider({
 
     }, [gatewayConnected]);
 
-    
+    const clearDeviceMessages = useCallback(() => {
+        setDeviceUpdateError(null);
+        setDeviceActionMessage(null);
+    }, []);
+
+    const addDevice = useCallback(async (input: NewDevice) => {
+
+        setDeviceActionLoading(true);
+        setDeviceUpdateError(null);
+        setDeviceActionMessage(null);
+
+        try {
+            const created = await IoTService.createDevice(input);
+            setDevices((current) => [...current, created]);
+            setDeviceActionMessage(`${created.name} was added.`);
+            return true;
+        } catch (error) {
+            setDeviceUpdateError(
+                error instanceof Error ? error.message : 'Unable to add the device.'
+            );
+            return false;
+        } finally {
+            setDeviceActionLoading(false);
+        }
+
+    }, []);
+
+    const removeDevice = useCallback(async (id: number) => {
+
+        setDeviceActionLoading(true);
+        setDeviceUpdateError(null);
+        setDeviceActionMessage(null);
+
+        try {
+            await IoTService.deleteDevice(id);
+            setDevices((current) => current.filter((device) => device.id !== id));
+            setDeviceActionMessage('Device removed.');
+            return true;
+        } catch (error) {
+            setDeviceUpdateError(
+                error instanceof Error ? error.message : 'Unable to remove the device.'
+            );
+            return false;
+        } finally {
+            setDeviceActionLoading(false);
+        }
+
+    }, []);
+
+    // Optimistic update; reverts and reports an error if saving fails.
+    const updateSettings = useCallback(async (changes: Partial<AppSettings>) => {
+
+        const previous = settings;
+        const next = { ...settings, ...changes };
+
+        setSettings(next);
+        setSettingsError(null);
+
+        try {
+            setSettings(await IoTService.updateSettings(next));
+        } catch (error) {
+            setSettings(previous);
+            setSettingsError('Unable to save settings.');
+        }
+
+    }, [settings]);
+
     useEffect(() => {
 
-        connectGateway();
+        // Load saved settings first so "Auto Connect" is respected at startup.
+        (async () => {
+            let loaded = defaultSettings;
+            try {
+                loaded = await IoTService.getSettings();
+                setSettings(loaded);
+            } catch (error) {
+                setSettingsError('Unable to load settings.');
+            }
+
+            if (loaded.autoConnect) {
+                connectGateway();
+            }
+        })();
+
         refreshDevices();
         refreshSensors();
 
@@ -188,6 +293,12 @@ export function IoTProvider({
                 deviceUpdateError,
                 toggleDevice,
 
+                deviceActionLoading,
+                deviceActionMessage,
+                clearDeviceMessages,
+                addDevice,
+                removeDevice,
+
                 sensors,
                 sensorsLoading,
                 sensorsError,
@@ -197,6 +308,10 @@ export function IoTProvider({
                 gatewayConnecting,
                 gatewayError,
                 connectGateway,
+
+                settings,
+                settingsError,
+                updateSettings,
 
                 darkMode,
                 setDarkMode,

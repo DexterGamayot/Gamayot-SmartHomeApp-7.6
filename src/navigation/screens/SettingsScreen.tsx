@@ -1,22 +1,39 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Switch,
+  ActivityIndicator,
+  Pressable,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useIoT } from '../../context/IoTContext';
-import { darkTheme, lightTheme } from '../../theme/colors';
+import { useTheme } from '../../theme/useTheme';
+import Banner from '../../components/Banner';
 
 export default function SettingsScreen() {
 
-  const [notifications, setNotifications] = useState(true);
-  const [autoConnect, setAutoConnect] = useState(true);
-  const { darkMode, setDarkMode } = useIoT();
-  const theme = darkMode ? darkTheme : lightTheme;
+  const {
+    darkMode,
+    setDarkMode,
+    settings,
+    settingsError,
+    updateSettings,
+    gatewayConnected,
+    gatewayConnecting,
+    gatewayError,
+    connectGateway,
+  } = useIoT();
+  const theme = useTheme();
+
+  const connectionStatus = gatewayConnecting
+    ? 'Connecting...'
+    : gatewayConnected
+      ? 'Connected'
+      : 'Disconnected';
 
   return (
     <ScrollView
@@ -35,6 +52,10 @@ export default function SettingsScreen() {
 
 
   
+
+      {settingsError && (
+        <Banner variant="error" message={settingsError} />
+      )}
 
       <Text style={[styles.sectionTitle, { color: theme.text }]}>
         General
@@ -68,8 +89,10 @@ export default function SettingsScreen() {
         </View>
 
         <Switch
-          value={notifications}
-          onValueChange={setNotifications}
+          value={settings.notifications}
+          onValueChange={(value) => updateSettings({ notifications: value })}
+          accessibilityLabel="Notifications"
+
         />
 
       </View>
@@ -101,8 +124,10 @@ export default function SettingsScreen() {
         </View>
 
         <Switch
-          value={autoConnect}
-          onValueChange={setAutoConnect}
+          value={settings.autoConnect}
+          onValueChange={(value) => updateSettings({ autoConnect: value })}
+          accessibilityLabel="Auto connect"
+
         />
 
       </View>
@@ -137,6 +162,7 @@ export default function SettingsScreen() {
         <Switch
           value={darkMode}
           onValueChange={setDarkMode}
+          accessibilityLabel="Dark mode"
         />
 
       </View>
@@ -152,7 +178,7 @@ export default function SettingsScreen() {
         <View style={styles.connectionInfo}>
 
           <Ionicons
-            name="cloud-done-outline"
+            name={gatewayConnected ? 'cloud-done-outline' : 'cloud-offline-outline'}
             size={30}
             color={theme.text}
           />
@@ -164,12 +190,36 @@ export default function SettingsScreen() {
             </Text>
 
             <Text style={[styles.connectionStatus, { color: theme.mutedText }]}>
-              Connected
+              {connectionStatus}
             </Text>
+
+            {!gatewayConnected && !gatewayConnecting && gatewayError && (
+              <Text style={[styles.connectionStatus, { color: theme.danger }]}>
+                {gatewayError}
+              </Text>
+            )}
 
           </View>
 
         </View>
+
+        {!gatewayConnected && (
+          <Pressable
+            style={[styles.connectButton, { backgroundColor: theme.primary }, gatewayConnecting && { opacity: 0.7 }]}
+            onPress={connectGateway}
+            disabled={gatewayConnecting}
+            accessibilityRole="button"
+            accessibilityLabel="Connect to gateway"
+          >
+            {gatewayConnecting ? (
+              <ActivityIndicator size="small" color={theme.onPrimary} />
+            ) : (
+              <Text style={[styles.connectButtonText, { color: theme.onPrimary }]}>
+                Connect
+              </Text>
+            )}
+          </Pressable>
+        )}
 
       </View>
 
@@ -212,9 +262,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 18,
     borderRadius: 12,
-    backgroundColor: '#ffffff',
     borderWidth: 2,
-    borderColor: '#1f1f1f',
     marginBottom: 12,
   },
 
@@ -242,9 +290,7 @@ const styles = StyleSheet.create({
   connectionCard: {
     padding: 18,
     borderRadius: 12,
-    backgroundColor: '#ffffff',
     borderWidth: 2,
-    borderColor: '#1f1f1f',
   },
 
   connectionInfo: {
@@ -256,6 +302,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 15,
+  },
+
+  connectButton: {
+    marginTop: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+
+  connectButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 
   connectionStatus: {

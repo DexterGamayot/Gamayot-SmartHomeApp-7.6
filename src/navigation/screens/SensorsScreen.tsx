@@ -11,6 +11,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { useIoT } from '../../context/IoTContext';
+import { useTheme } from '../../theme/useTheme';
+import Banner from '../../components/Banner';
 
 
 
@@ -23,149 +25,84 @@ export default function SensorsScreen() {
     refreshSensors,
   } = useIoT();
 
+  const theme = useTheme();
+
+  const cards = [
+    { name: 'Temperature', icon: 'thermometer-outline', value: `${sensors.temperature} °C`, description: 'Current room temperature' },
+    { name: 'Humidity', icon: 'water-outline', value: sensors.humidity === undefined ? '—' : `${sensors.humidity} %`, description: 'Current relative humidity' },
+    { name: 'Light Level', icon: 'sunny-outline', value: `${sensors.lightLevel} lux`, description: 'Current ambient light' },
+  ] as const;
+
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
       contentContainerStyle={styles.content}
     >
 
-      <Text style={styles.title}>
+      <Text style={[styles.title, { color: theme.text }]}>
         Sensors
       </Text>
 
-      <Text style={styles.subtitle}>
+      <Text style={[styles.subtitle, { color: theme.mutedText }]}>
         Monitor your environment
       </Text>
 
       {sensorsError && (
-        <View style={[styles.banner, styles.errorBanner]}>
-
-          <Ionicons
-            name="alert-circle-outline"
-            size={20}
-            color="#b3261e"
-          />
-
-          <Text style={styles.errorBannerText}>
-            {sensorsError}
-          </Text>
-
-          <Pressable
-            style={styles.retryButton}
-            onPress={refreshSensors}
-          >
-            <Text style={styles.retryButtonText}>
-              Retry
-            </Text>
-          </Pressable>
-
-        </View>
+        <Banner
+          variant="error"
+          message={sensorsError}
+          actionLabel="Retry"
+          onAction={refreshSensors}
+        />
       )}
 
       {sensorsLoading && (
-        <View style={styles.banner}>
-          <ActivityIndicator size="small" />
-          <Text style={styles.loadingBannerText}>
-            Refreshing Sensors...
-          </Text>
-        </View>
+        <Banner variant="loading" message="Refreshing Sensors..." />
       )}
 
-      <View style={styles.sensorCard}>
+      {cards.map((card) => (
+        <View
+          key={card.name}
+          style={[styles.sensorCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+        >
 
-        <View style={styles.sensorHeader}>
+          <View style={styles.sensorHeader}>
+            <Ionicons name={card.icon} size={30} color={theme.text} />
+            <Text style={[styles.sensorName, { color: theme.text }]}>
+              {card.name}
+            </Text>
+          </View>
 
-          <Ionicons
-            name="thermometer-outline"
-            size={30}
-          />
+          <Text style={[styles.sensorValue, { color: theme.text }]}>
+            {card.value}
+          </Text>
 
-          <Text style={styles.sensorName}>
-            Temperature
+          <Text style={[styles.sensorDescription, { color: theme.mutedText }]}>
+            {card.description}
           </Text>
 
         </View>
-
-        <Text style={styles.sensorValue}>
-          {sensors.temperature} °C
-        </Text>
-
-        <Text style={styles.sensorDescription}>
-          Current room temperature
-        </Text>
-
-      </View>
-
-      <View style={styles.sensorCard}>
-
-        <View style={styles.sensorHeader}>
-
-          <Ionicons
-            name="water-outline"
-            size={30}
-          />
-
-          <Text style={styles.sensorName}>
-            Humidity
-          </Text>
-
-        </View>
-
-        <Text style={styles.sensorValue}>
-          {sensors.humidity} %
-        </Text>
-
-        <Text style={styles.sensorDescription}>
-          Current relative humidity
-        </Text>
-
-      </View>
-
-      <View style={styles.sensorCard}>
-
-        <View style={styles.sensorHeader}>
-
-          <Ionicons
-            name="sunny-outline"
-            size={30}
-          />
-
-          <Text style={styles.sensorName}>
-            Light Level
-          </Text>
-
-        </View>
-
-        <Text style={styles.sensorValue}>
-          {sensors.lightLevel} lux
-        </Text>
-
-        <Text style={styles.sensorDescription}>
-          Current ambient light
-        </Text>
-
-      </View>
+      ))}
 
       <Pressable
         style={[
           styles.refreshButton,
+          { backgroundColor: theme.primary },
           sensorsLoading && styles.refreshButtonDisabled,
         ]}
         onPress={refreshSensors}
         disabled={sensorsLoading}
+        accessibilityRole="button"
+        accessibilityLabel="Refresh sensors"
       >
 
         {sensorsLoading ? (
-          <ActivityIndicator size="small" color="#ffffff" />
+          <ActivityIndicator size="small" color={theme.onPrimary} />
         ) : (
-          <Ionicons
-            name="refresh-outline"
-            size={20}
-            color="#ffffff"
-          />
+          <Ionicons name="refresh-outline" size={20} color={theme.onPrimary} />
         )}
 
-        <Text style={styles.refreshButtonText}>
+        <Text style={[styles.refreshButtonText, { color: theme.onPrimary }]}>
           {sensorsLoading ? 'Refreshing Sensors...' : 'Refresh Sensors'}
         </Text>
 
@@ -197,49 +134,16 @@ const styles = StyleSheet.create({
     marginBottom: 25,
   },
 
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: '#eeeeee',
-    marginBottom: 15,
-    gap: 10,
-  },
 
-  errorBanner: {
-    backgroundColor: '#fbe9e7',
-  },
 
-  errorBannerText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#b3261e',
-  },
 
-  loadingBannerText: {
-    fontSize: 13,
-  },
 
-  retryButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    backgroundColor: '#b3261e',
-  },
 
-  retryButtonText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
 
   sensorCard: {
     padding: 20,
     borderRadius: 12,
-    backgroundColor: '#ffffff',
     borderWidth: 2,
-    borderColor: '#1f1f1f',
     marginBottom: 15,
   },
 
@@ -272,7 +176,6 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 16,
     borderRadius: 15,
-    backgroundColor: '#2f6fed',
     marginBottom: 30,
   },
 
@@ -281,7 +184,6 @@ const styles = StyleSheet.create({
   },
 
   refreshButtonText: {
-    color: '#ffffff',
     fontSize: 15,
     fontWeight: 'bold',
   },
