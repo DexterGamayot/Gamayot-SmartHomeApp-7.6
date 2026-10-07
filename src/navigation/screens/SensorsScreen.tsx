@@ -29,7 +29,7 @@ export default function SensorsScreen() {
 
   const cards = [
     { name: 'Temperature', icon: 'thermometer-outline', value: `${sensors.temperature} °C`, description: 'Current room temperature' },
-    { name: 'Humidity', icon: 'water-outline', value: `${sensors.humidity} %`, description: 'Current relative humidity' },
+    { name: 'Humidity', icon: 'water-outline', value: sensors.humidity === undefined ? '—' : `${sensors.humidity} %`, description: 'Current relative humidity' },
     { name: 'Light Level', icon: 'sunny-outline', value: `${sensors.lightLevel} lux`, description: 'Current ambient light' },
   ] as const;
 
@@ -133,6 +133,12 @@ const styles = StyleSheet.create({
     marginTop: 5,
     marginBottom: 25,
   },
+
+
+
+
+
+
 
   sensorCard: {
     padding: 20,
